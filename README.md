@@ -16,6 +16,26 @@ Durandal now includes a small `LAPIS SENTINEL` panel: an opinionated ops-readine
 
 Durandal also includes a `DOCKER` station beneath the process list. It uses the local Docker CLI to show `docker ps -a`, with running containers listed first. Press `c` to focus the station, move with `j/k` or arrow keys, press `x` to start or stop the selected container, and press `r` to restart a running container. Destructive actions ask for `y/n` confirmation.
 
+## Agent / script mode
+
+Durandal is useful outside the visual TUI too:
+
+```bash
+# Compact one-shot JSON payload for agents, scripts, cron jobs, or dashboards.
+durandal agent --json --pretty --top 8
+
+# Alias for the same JSON snapshot.
+durandal snapshot --pretty
+
+# Human-readable health check. Exit code: 0 clear/below threshold, 1 WATCH, 2 WARN, 3 CRIT.
+durandal check --fail-on warn
+
+# Same health check, but with the full agent JSON payload.
+durandal check --json --fail-on crit
+```
+
+The JSON payload uses schema `durandal.agent.v1` and includes host identity, Sentinel score/status/alerts, actionable recommendations, resources, top processes, and Docker container counts/details.
+
 Run from source with:
 
 ```bash

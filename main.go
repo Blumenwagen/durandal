@@ -1,14 +1,20 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/blumenwagen/durandal/internal/app"
+	"github.com/blumenwagen/durandal/internal/cli"
+	"github.com/blumenwagen/durandal/internal/metrics"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 func main() {
+	code := cli.Run(os.Args[1:], os.Stdout, os.Stderr, metrics.CollectSnapshot, runTUI)
+	os.Exit(code)
+}
+
+func runTUI() error {
 	m := app.NewModel()
 
 	p := tea.NewProgram(
@@ -17,8 +23,6 @@ func main() {
 		tea.WithMouseCellMotion(),
 	)
 
-	if _, err := p.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error running Durandal: %v\n", err)
-		os.Exit(1)
-	}
+	_, err := p.Run()
+	return err
 }
