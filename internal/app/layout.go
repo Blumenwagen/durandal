@@ -38,18 +38,24 @@ func calculateLayout(m Model) Model {
 		gpuH = usableH * 15 / 100
 	}
 
-	// Vertical split for left column: CPU | [GPU] | MEM | NET | DISK
-	cpuH := usableH * 25 / 100
-	memH := usableH * 25 / 100
-	netH := usableH * 20 / 100
+	// Vertical split for left column: SENTINEL | CPU | [GPU] | MEM | NET | DISK
+	sentinelH := usableH * 16 / 100
+	if sentinelH < 5 {
+		sentinelH = 5
+	}
+	cpuH := usableH * 22 / 100
+	memH := usableH * 22 / 100
+	netH := usableH * 17 / 100
 
 	// Recalculate Disk to absorb rounding so total matches exactly usableH
-	diskH := usableH - (cpuH + gpuH + memH + netH)
+	diskH := usableH - (sentinelH + cpuH + gpuH + memH + netH)
 
 	// Header & HelpBar
 	m.Header.Width = w
 
 	// Left column components
+	m.Sentinel.Width = leftW
+	m.Sentinel.Height = sentinelH
 	m.CPU.Width = leftW
 	m.CPU.Height = cpuH
 	m.GPU.Width = leftW
@@ -83,7 +89,7 @@ func renderLayout(m Model) string {
 		leftCol = m.Inspector.View()
 	} else {
 		var panels []string
-		panels = append(panels, m.CPU.View())
+		panels = append(panels, m.Sentinel.View(), m.CPU.View())
 
 		gpuView := m.GPU.View()
 		if gpuView != "" {
