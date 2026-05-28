@@ -25,12 +25,15 @@ type Model struct {
 	GPU           components.GPU
 	Memory        components.Memory
 	Processes     components.Processes
+	Docker        components.Docker
 	Network       components.Network
 	Disk          components.Disk
 	Inspector     components.Inspector
 	InspectorOpen bool
+	DockerFocused bool
 
 	ProcY    int // Y-coordinate where process list starts
+	DockerY  int // Y-coordinate where Docker station starts
 	ready    bool
 	quitting bool
 }
@@ -41,6 +44,7 @@ func NewModel() Model {
 		GPU:       components.NewGPU(),
 		Memory:    components.NewMemory(),
 		Processes: components.NewProcesses(),
+		Docker:    components.NewDocker(),
 		Network:   components.NewNetwork(),
 		Disk:      components.NewDisk(),
 		Header:    components.NewHeader(),
@@ -94,40 +98,82 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+		if m.Docker.Confirm != "" {
+			switch msg.String() {
+			case "y", "Y":
+				m.Docker.ConfirmAction()
+				return m, collectCmd()
+			case "n", "N", "esc":
+				m.Docker.CancelAction()
+			case "q", "ctrl+c":
+				m.quitting = true
+				return m, tea.Quit
+			}
+			return m, nil
+		}
+
 		switch msg.String() {
 		case "esc":
 			if m.InspectorOpen {
 				m.InspectorOpen = false
+			} else {
+				m.DockerFocused = false
 			}
 		case "q", "ctrl+c":
 			m.quitting = true
 			return m, tea.Quit
+		case "c":
+			m.DockerFocused = !m.DockerFocused
 		case "j", "down":
-			m.Processes.ScrollDown()
-			if m.InspectorOpen && len(m.Processes.List) > 0 && m.Processes.Cursor >= 0 && m.Processes.Cursor < len(m.Processes.List) {
-				m.Inspector.Update(m.Processes.List[m.Processes.Cursor])
-			}
-		case "k", "up":
-			m.Processes.ScrollUp()
-			if m.InspectorOpen && len(m.Processes.List) > 0 && m.Processes.Cursor >= 0 && m.Processes.Cursor < len(m.Processes.List) {
-				m.Inspector.Update(m.Processes.List[m.Processes.Cursor])
-			}
-		case "s", "tab":
-			m.Processes.ToggleSort()
-		case "/":
-			m.Processes.IsFiltering = true
-			m.Processes.FilterInput.Focus()
-		case "enter":
-			if m.InspectorOpen {
-				m.InspectorOpen = false
+			if m.DockerFocused {
+				m.Docker.ScrollDown()
 			} else {
-				if len(m.Processes.List) > 0 && m.Processes.Cursor >= 0 {
-					m.InspectorOpen = true
+				m.Processes.ScrollDown()
+				if m.InspectorOpen && len(m.Processes.List) > 0 && m.Processes.Cursor >= 0 && m.Processes.Cursor < len(m.Processes.List) {
 					m.Inspector.Update(m.Processes.List[m.Processes.Cursor])
 				}
 			}
+		case "k", "up":
+			if m.DockerFocused {
+				m.Docker.ScrollUp()
+			} else {
+				m.Processes.ScrollUp()
+				if m.InspectorOpen && len(m.Processes.List) > 0 && m.Processes.Cursor >= 0 && m.Processes.Cursor < len(m.Processes.List) {
+					m.Inspector.Update(m.Processes.List[m.Processes.Cursor])
+				}
+			}
+		case "s", "tab":
+			if !m.DockerFocused {
+				m.Processes.ToggleSort()
+			}
+		case "/":
+			if !m.DockerFocused {
+				m.Processes.IsFiltering = true
+				m.Processes.FilterInput.Focus()
+			}
+		case "enter":
+			if !m.DockerFocused {
+				if m.InspectorOpen {
+					m.InspectorOpen = false
+				} else {
+					if len(m.Processes.List) > 0 && m.Processes.Cursor >= 0 {
+						m.InspectorOpen = true
+						m.Inspector.Update(m.Processes.List[m.Processes.Cursor])
+					}
+				}
+			}
 		case "K": // Shift+K to kill
-			m.Processes.RequestKill()
+			if !m.DockerFocused {
+				m.Processes.RequestKill()
+			}
+		case "x":
+			if m.DockerFocused {
+				m.Docker.RequestToggle()
+			}
+		case "r":
+			if m.DockerFocused {
+				m.Docker.RequestRestart()
+			}
 		case "d":
 			styles.Dimmed = !styles.Dimmed
 		}
@@ -135,19 +181,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.MouseMsg:
 		switch msg.Type {
 		case tea.MouseWheelUp:
-			m.Processes.ScrollUp()
-			if m.InspectorOpen && len(m.Processes.List) > 0 && m.Processes.Cursor >= 0 && m.Processes.Cursor < len(m.Processes.List) {
-				m.Inspector.Update(m.Processes.List[m.Processes.Cursor])
+			if msg.Y >= m.DockerY {
+				m.DockerFocused = true
+				m.Docker.ScrollUp()
+			} else {
+				m.DockerFocused = false
+				m.Processes.ScrollUp()
+				if m.InspectorOpen && len(m.Processes.List) > 0 && m.Processes.Cursor >= 0 && m.Processes.Cursor < len(m.Processes.List) {
+					m.Inspector.Update(m.Processes.List[m.Processes.Cursor])
+				}
 			}
 		case tea.MouseWheelDown:
-			m.Processes.ScrollDown()
-			if m.InspectorOpen && len(m.Processes.List) > 0 && m.Processes.Cursor >= 0 && m.Processes.Cursor < len(m.Processes.List) {
-				m.Inspector.Update(m.Processes.List[m.Processes.Cursor])
+			if msg.Y >= m.DockerY {
+				m.DockerFocused = true
+				m.Docker.ScrollDown()
+			} else {
+				m.DockerFocused = false
+				m.Processes.ScrollDown()
+				if m.InspectorOpen && len(m.Processes.List) > 0 && m.Processes.Cursor >= 0 && m.Processes.Cursor < len(m.Processes.List) {
+					m.Inspector.Update(m.Processes.List[m.Processes.Cursor])
+				}
 			}
 		case tea.MouseLeft:
 			contentStartY := m.ProcY + 4
 			contentEndY := m.ProcY + m.Processes.Height - 1
 			if msg.Y >= contentStartY && msg.Y < contentEndY {
+				m.DockerFocused = false
 				clickedIdx := msg.Y - contentStartY + m.Processes.Offset
 				if clickedIdx >= 0 && clickedIdx < len(m.Processes.List) {
 					m.Processes.Cursor = clickedIdx
@@ -157,6 +216,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 					if m.InspectorOpen {
 						m.Inspector.Update(m.Processes.List[m.Processes.Cursor])
+					}
+				}
+			} else if msg.Y >= m.DockerY {
+				m.DockerFocused = true
+				dockerContentStartY := m.DockerY + 4
+				dockerContentEndY := m.DockerY + m.Docker.Height - 1
+				if msg.Y >= dockerContentStartY && msg.Y < dockerContentEndY {
+					clickedIdx := msg.Y - dockerContentStartY + m.Docker.Offset
+					if clickedIdx >= 0 && clickedIdx < len(m.Docker.Info.Containers) {
+						m.Docker.Cursor = clickedIdx
+						m.Docker.CancelAction()
 					}
 				}
 			}
@@ -195,6 +265,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.Network.Update(snap.Network)
 		m.Disk.Update(snap.Disks)
+		m.Docker.Update(snap.Docker)
+		m.Docker.Focused = m.DockerFocused
 
 		if m.ready {
 			m = calculateLayout(m)

@@ -2,8 +2,10 @@ package metrics
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/user"
 	"sort"
 	"strings"
@@ -33,7 +35,7 @@ func CollectSnapshot() (Snapshot, error) {
 	var snap Snapshot
 	var wg sync.WaitGroup
 
-	wg.Add(7)
+	wg.Add(8)
 
 	go func() { defer wg.Done(); snap.Host = collectHost() }()
 	go func() { defer wg.Done(); snap.CPU = collectCPU() }()
@@ -42,6 +44,7 @@ func CollectSnapshot() (Snapshot, error) {
 	go func() { defer wg.Done(); snap.Network = collectNetwork() }()
 	go func() { defer wg.Done(); snap.Disks = collectDisks() }()
 	go func() { defer wg.Done(); snap.Sensors = collectSensors() }()
+	go func() { defer wg.Done(); snap.Docker = collectDocker() }()
 
 	wg.Wait()
 
@@ -495,4 +498,71 @@ func collectGPUs() []GPUInfo {
 	}
 
 	return gpus
+}
+
+type dockerContainerJSON struct {
+	ID     string `json:"ID"`
+	Image  string `json:"Image"`
+	Names  string `json:"Names"`
+	Status string `json:"Status"`
+	State  string `json:"State"`
+	Ports  string `json:"Ports"`
+}
+
+func collectDocker() DockerInfo {
+	ctx, cancel := context.WithTimeout(context.Background(), 700*time.Millisecond)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "docker", "ps", "-a", "--format", "{{json .}}")
+	out, err := cmd.CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		return DockerInfo{Error: "docker query timed out"}
+	}
+	if err != nil {
+		return DockerInfo{Error: shortDockerError(err, out)}
+	}
+
+	info := DockerInfo{Available: true}
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if len(lines) == 1 && lines[0] == "" {
+		return info
+	}
+
+	for _, line := range lines {
+		var raw dockerContainerJSON
+		if err := json.Unmarshal([]byte(line), &raw); err != nil {
+			continue
+		}
+		state := strings.ToLower(raw.State)
+		info.Containers = append(info.Containers, ContainerInfo{
+			ID:      raw.ID,
+			Image:   raw.Image,
+			Name:    raw.Names,
+			Status:  raw.Status,
+			State:   raw.State,
+			Ports:   raw.Ports,
+			Running: state == "running",
+		})
+	}
+
+	sort.SliceStable(info.Containers, func(i, j int) bool {
+		if info.Containers[i].Running != info.Containers[j].Running {
+			return info.Containers[i].Running
+		}
+		return info.Containers[i].Name < info.Containers[j].Name
+	})
+
+	return info
+}
+
+func shortDockerError(err error, out []byte) string {
+	if _, ok := err.(*exec.Error); ok {
+		return "docker CLI not found"
+	}
+	msg := strings.TrimSpace(string(out))
+	if msg != "" {
+		lines := strings.Split(msg, "\n")
+		return strings.TrimSpace(lines[0])
+	}
+	return "docker unavailable"
 }

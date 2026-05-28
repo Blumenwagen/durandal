@@ -82,6 +82,9 @@ func HelpBar(w int, dimmed bool) string {
 		{"/", "FIND"},
 		{"⏎", "INSPECT"},
 		{"K", "KILL"},
+		{"c", "DOCKER"},
+		{"x", "START/STOP"},
+		{"r", "RESTART"},
 		{"d", "DIM"},
 		{"q", "QUIT"},
 	}

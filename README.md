@@ -12,6 +12,10 @@ As I am trying to get into learning Go. Durandal is, much like synx, also a lear
 
 Durandal now includes a small `LAPIS SENTINEL` panel: an opinionated ops-readiness triage strip that turns the current CPU, RAM, swap, disk, network, and hot-process state into a compact score plus the most urgent signals. It is meant to make the monitor more useful at a glance on a VPS: if something is close to hurting the host, the panel should say so before the individual gauges need to be interpreted.
 
+## Docker Control Station
+
+Durandal also includes a `DOCKER` station beneath the process list. It uses the local Docker CLI to show `docker ps -a`, with running containers listed first. Press `c` to focus the station, move with `j/k` or arrow keys, press `x` to start or stop the selected container, and press `r` to restart a running container. Destructive actions ask for `y/n` confirmation.
+
 Run from source with:
 
 ```bash

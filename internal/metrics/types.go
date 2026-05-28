@@ -10,6 +10,7 @@ type Snapshot struct {
 	GPUs      []GPUInfo
 	Sensors   SensorInfo
 	Host      HostInfo
+	Docker    DockerInfo
 }
 
 // HostInfo contains system identity data.
@@ -99,4 +100,22 @@ type GPUInfo struct {
 	MemoryUsed  uint64  // MB
 	MemoryTotal uint64  // MB
 	Temperature float64 // Celsius
+}
+
+// DockerInfo contains local Docker daemon state.
+type DockerInfo struct {
+	Available  bool
+	Error      string
+	Containers []ContainerInfo
+}
+
+// ContainerInfo represents one Docker container.
+type ContainerInfo struct {
+	ID      string
+	Image   string
+	Name    string
+	Status  string
+	State   string
+	Ports   string
+	Running bool
 }

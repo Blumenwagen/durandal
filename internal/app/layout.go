@@ -18,9 +18,6 @@ func calculateLayout(m Model) Model {
 	// Reserve fixed rows: header (1) + help bar (1) = 2
 	usableH := h - 2
 
-	// Process list takes full usable height
-	procH := usableH
-
 	// Width split: Left stats (35%) | Process list (65%)
 	leftW := w * 35 / 100
 	if leftW < 30 {
@@ -53,6 +50,19 @@ func calculateLayout(m Model) Model {
 	// Header & HelpBar
 	m.Header.Width = w
 
+	// Right column: process list with Docker station underneath.
+	dockerH := usableH * 28 / 100
+	if dockerH < 8 {
+		dockerH = 8
+	}
+	if usableH-dockerH < 8 {
+		dockerH = usableH - 8
+	}
+	if dockerH < 0 {
+		dockerH = 0
+	}
+	procH := usableH - dockerH
+
 	// Left column components
 	m.Sentinel.Width = leftW
 	m.Sentinel.Height = sentinelH
@@ -74,8 +84,11 @@ func calculateLayout(m Model) Model {
 	// Right column
 	m.Processes.Width = rightW
 	m.Processes.Height = procH
+	m.Docker.Width = rightW
+	m.Docker.Height = dockerH
 
 	m.ProcY = 1 // Process list starts immediately after the header
+	m.DockerY = 1 + procH
 
 	return m
 }
@@ -101,10 +114,16 @@ func renderLayout(m Model) string {
 	}
 
 	procs := m.Processes.View()
+	docker := m.Docker
+	docker.Focused = m.DockerFocused
+	rightCol := procs
+	if docker.Height > 0 {
+		rightCol = lipgloss.JoinVertical(lipgloss.Left, procs, docker.View())
+	}
 
 	middleRow := lipgloss.JoinHorizontal(lipgloss.Top,
 		leftCol,
-		procs,
+		rightCol,
 	)
 
 	helpBar := components.HelpBar(m.Width, false)
