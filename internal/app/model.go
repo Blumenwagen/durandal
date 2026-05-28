@@ -6,6 +6,7 @@ import (
 
 	"github.com/blumenwagen/durandal/internal/components"
 	"github.com/blumenwagen/durandal/internal/metrics"
+	"github.com/blumenwagen/durandal/internal/ops"
 	"github.com/blumenwagen/durandal/internal/styles"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -19,6 +20,7 @@ type Model struct {
 	Height int
 
 	Header        components.Header
+	Sentinel      components.Sentinel
 	CPU           components.CPU
 	GPU           components.GPU
 	Memory        components.Memory
@@ -42,6 +44,7 @@ func NewModel() Model {
 		Network:   components.NewNetwork(),
 		Disk:      components.NewDisk(),
 		Header:    components.NewHeader(),
+		Sentinel:  components.NewSentinel(),
 		Inspector: components.NewInspector(),
 	}
 }
@@ -171,6 +174,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case snapshotMsg:
 		snap := metrics.Snapshot(msg)
 		m.Header.Host = snap.Host
+		m.Sentinel.Update(ops.EvaluateSnapshot(snap))
 		m.CPU.Update(snap.CPU)
 		m.Memory.Update(snap.Memory, snap.Sensors)
 
